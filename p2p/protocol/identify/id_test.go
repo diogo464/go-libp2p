@@ -425,6 +425,7 @@ func TestIdentifyDeltaOnProtocolChange(t *testing.T) {
 		_, okbar := have["bar"]
 		return okfoo && okbar
 	}, time.Second, 10*time.Millisecond)
+	t.FailNow()
 
 	// remove one of the newly added protocols from h2, and wait for identify to send the delta.
 	h2.RemoveStreamHandler(protocol.ID("bar"))
