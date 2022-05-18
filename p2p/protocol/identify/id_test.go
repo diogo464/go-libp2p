@@ -405,8 +405,13 @@ func TestIdentifyDeltaOnProtocolChange(t *testing.T) {
 	h2.SetStreamHandler(protocol.ID("foo"), func(_ network.Stream) {})
 	h2.SetStreamHandler(protocol.ID("bar"), func(_ network.Stream) {})
 
+	now := time.Now()
 	// check that h1 now knows about h2's new protocols.
-	require.Eventually(t, func() bool {
+	require.Eventually(t, func() (res bool) {
+		defer func() {
+			fmt.Println("Took: ", time.Since(now))
+		}()
+
 		protos, err = h1.Peerstore().GetProtocols(h2.ID())
 		if err != nil {
 			return false
