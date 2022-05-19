@@ -19,6 +19,8 @@ import (
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/libp2p/go-msgio/protoio"
 	ma "github.com/multiformats/go-multiaddr"
+
+	"github.com/diogo464/telemetry/pkg/telemetry/measurements"
 )
 
 // Protocol is the libp2p protocol for Hole Punching.
@@ -260,6 +262,9 @@ func (s *Service) handleNewStream(str network.Stream) {
 	err = holePunchConnect(s.ctx, s.host, pi, false)
 	dt := time.Since(start)
 	s.tracer.EndHolePunch(rp, dt, err)
+	measurements.WithHolePunch(func(hp measurements.HolePunch) {
+		hp.Incoming(err == nil)
+	})
 }
 
 // DirectConnect is only exposed for testing purposes.
