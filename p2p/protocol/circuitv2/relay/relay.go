@@ -21,6 +21,8 @@ import (
 	pool "github.com/libp2p/go-buffer-pool"
 	ma "github.com/multiformats/go-multiaddr"
 	manet "github.com/multiformats/go-multiaddr/net"
+
+	"github.com/diogo464/telemetry/pkg/telemetry/measurements"
 )
 
 const (
@@ -198,6 +200,9 @@ func (r *Relay) handleReserve(s network.Stream) {
 	r.mx.Unlock()
 
 	log.Debugf("reserving relay slot for %s", p)
+	measurements.WithRelay(func(r measurements.Relay) {
+		r.Reservation(p)
+	})
 
 	// Delivery of the reservation might fail for a number of reasons.
 	// For example, the stream might be reset or the connection might be closed before the reservation is received.
@@ -377,12 +382,21 @@ func (r *Relay) handleConnect(s network.Stream, msg *pbv2.HopMessage) {
 	bs.SetDeadline(time.Time{})
 
 	log.Infof("relaying connection from %s to %s", src, dest.ID)
+	relayedBytes := new(uint64)
+	connectionStart := time.Now()
+	measurements.WithRelay(func(r measurements.Relay) {
+		r.ConnectionOpen(src, dest.ID)
+	})
 
 	goroutines := new(int32)
 	*goroutines = 2
 
 	done := func() {
 		if atomic.AddInt32(goroutines, -1) == 0 {
+			measurements.WithRelay(func(r measurements.Relay) {
+				r.ConnectionClose(src, dest.ID, time.Since(connectionStart), *relayedBytes)
+			})
+
 			s.Close()
 			bs.Close()
 			cleanup()
@@ -393,11 +407,11 @@ func (r *Relay) handleConnect(s network.Stream, msg *pbv2.HopMessage) {
 		deadline := time.Now().Add(r.rc.Limit.Duration)
 		s.SetDeadline(deadline)
 		bs.SetDeadline(deadline)
-		go r.relayLimited(s, bs, src, dest.ID, r.rc.Limit.Data, done)
-		go r.relayLimited(bs, s, dest.ID, src, r.rc.Limit.Data, done)
+		go r.relayLimited(s, bs, src, dest.ID, r.rc.Limit.Data, done, relayedBytes)
+		go r.relayLimited(bs, s, dest.ID, src, r.rc.Limit.Data, done, relayedBytes)
 	} else {
-		go r.relayUnlimited(s, bs, src, dest.ID, done)
-		go r.relayUnlimited(bs, s, dest.ID, src, done)
+		go r.relayUnlimited(s, bs, src, dest.ID, done, relayedBytes)
+		go r.relayUnlimited(bs, s, dest.ID, src, done, relayedBytes)
 	}
 }
 
@@ -421,7 +435,7 @@ func (r *Relay) rmConn(p peer.ID) {
 	}
 }
 
-func (r *Relay) relayLimited(src, dest network.Stream, srcID, destID peer.ID, limit int64, done func()) {
+func (r *Relay) relayLimited(src, dest network.Stream, srcID, destID peer.ID, limit int64, done func(), relayedBytes *uint64) {
 	defer done()
 
 	buf := pool.Get(r.rc.BufferSize)
@@ -445,9 +459,10 @@ func (r *Relay) relayLimited(src, dest network.Stream, srcID, destID peer.ID, li
 	}
 
 	log.Debugf("relayed %d bytes from %s to %s", count, srcID, destID)
+	atomic.AddUint64(relayedBytes, uint64(count))
 }
 
-func (r *Relay) relayUnlimited(src, dest network.Stream, srcID, destID peer.ID, done func()) {
+func (r *Relay) relayUnlimited(src, dest network.Stream, srcID, destID peer.ID, done func(), relayedBytes *uint64) {
 	defer done()
 
 	buf := pool.Get(r.rc.BufferSize)
@@ -465,6 +480,7 @@ func (r *Relay) relayUnlimited(src, dest network.Stream, srcID, destID peer.ID, 
 	}
 
 	log.Debugf("relayed %d bytes from %s to %s", count, srcID, destID)
+	atomic.AddUint64(relayedBytes, uint64(count))
 }
 
 func (r *Relay) handleError(s network.Stream, status pbv2.Status) {
