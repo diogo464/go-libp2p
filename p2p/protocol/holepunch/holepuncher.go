@@ -158,11 +158,11 @@ func (hp *holePuncher) directConnect(rp peer.ID) error {
 			err := holePunchConnect(hp.ctx, hp.host, pi, true)
 			dt := time.Since(start)
 			hp.tracer.EndHolePunch(rp, dt, err)
-			measurements.WithHolePunch(func(hp measurements.HolePunch) {
-				hp.Outgoing(err == nil)
-			})
 			if err == nil {
 				log.Debugw("hole punching with successful", "peer", rp, "time", dt)
+				measurements.WithHolePunch(func(hp measurements.HolePunch) {
+					hp.Register(true)
+				})
 				return nil
 			}
 		case <-hp.ctx.Done():
@@ -170,6 +170,9 @@ func (hp *holePuncher) directConnect(rp peer.ID) error {
 			return hp.ctx.Err()
 		}
 	}
+	measurements.WithHolePunch(func(hp measurements.HolePunch) {
+		hp.Register(false)
+	})
 	return fmt.Errorf("all retries for hole punch with peer %s failed", rp)
 }
 
