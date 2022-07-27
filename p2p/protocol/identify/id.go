@@ -404,7 +404,11 @@ func (ids *idService) sendIdentifyResp(s network.Stream) {
 	ph.snapshotMu.RLock()
 	snapshot := ph.snapshot
 	ph.snapshotMu.RUnlock()
+	fmt.Println("Waiting for remote identify")
+	<-ids.IdentifyWait(c)
+	fmt.Println("Writting identify response to ", c.RemotePeer())
 	ids.writeChunkedIdentifyMsg(c, snapshot, s)
+	fmt.Println("Done writing identify response to ", c.RemotePeer())
 	log.Debugf("%s sent message to %s %s", ID, c.RemotePeer(), c.RemoteMultiaddr())
 }
 
