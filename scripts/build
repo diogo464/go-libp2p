@@ -1,0 +1,16 @@
+#!/bin/bash
+
+if [ "$#" -ne "2" ]; then
+    echo "usage: $0 <os> <arch>"
+    exit 1
+fi
+
+TAG=$(git describe --tags --abbrev=0)
+mkdir bin
+mkdir -p build && cd build
+git clone https://github.com/ipfs/kubo
+pushd kubo 
+	GOOS="$1" GOARCH="$2" CGO_ENABLED=0 make build || exit 1
+	mv cmd/ipfs/ipfs ../../bin/"kubo_""v$TAG""_$1_$2"
+popd
+
