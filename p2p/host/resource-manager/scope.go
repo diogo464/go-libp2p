@@ -171,6 +171,7 @@ func (rc *resources) addStreams(incount, outcount int) error {
 	if incount > 0 {
 		limit := rc.limit.GetStreamLimit(network.DirInbound)
 		if rc.nstreamsIn+incount > limit {
+			panic(fmt.Sprint("---###--- rc.nstreamsIn: ", rc.nstreamsIn, ", incount: ", incount, ", limit: ", limit))
 			return &errStreamOrConnLimitExceeded{
 				current:   rc.nstreamsIn,
 				attempted: incount,
@@ -244,6 +245,7 @@ func (rc *resources) addConns(incount, outcount, fdcount int) error {
 	if incount > 0 {
 		limit := rc.limit.GetConnLimit(network.DirInbound)
 		if rc.nconnsIn+incount > limit {
+			panic(fmt.Sprint("---###--- rc.nstreamsIn: ", rc.nconnsIn, ", incount: ", incount, ", limit: ", limit))
 			return &errStreamOrConnLimitExceeded{
 				current:   rc.nconnsIn,
 				attempted: incount,
